@@ -1,0 +1,13 @@
+# idea
+.idea
+.idea/
+*.iml
+.DS_Store
+**/.DS_Store
+
+
+#vscode
+.vscode
+.vscode/
+
+
