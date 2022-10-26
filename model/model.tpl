@@ -15,6 +15,10 @@ type (
 	// and implement the added methods in custom{{.upperStartCamelObject}}Model.
 	{{.upperStartCamelObject}}Model interface {
 		{{.lowerStartCamelObject}}Model
+		Trans(ctx context.Context, fn func(context context.Context, session sqlx.Session) error) error
+        RowBuilder() squirrel.SelectBuilder
+        CountBuilder(field string) squirrel.SelectBuilder
+        SumBuilder(field string) squirrel.SelectBuilder
 	}
 
 	custom{{.upperStartCamelObject}}Model struct {
