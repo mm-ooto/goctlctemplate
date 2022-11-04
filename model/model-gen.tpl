@@ -5,9 +5,9 @@ package {{.pkg}}
 {{.vars}}
 {{.types}}
 {{.new}}
-{{.delete}}
-{{.find}}
 {{.insert}}
+{{.find}}
 {{.update}}
+{{.delete}}
 {{.extraMethod}}
 {{.tableName}}
