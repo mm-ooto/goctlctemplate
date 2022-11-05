@@ -32,7 +32,7 @@ type (
 		RowBuilder() squirrel.SelectBuilder
 		CountBuilder(field string) squirrel.SelectBuilder
 		SumBuilder(field string) squirrel.SelectBuilder
-		DeleteSoft(ctx context.Context,session sqlx.Session, data *{{.upperStartCamelObject}}) error
+		// DeleteSoft(ctx context.Context,session sqlx.Session, data *{{.upperStartCamelObject}}) error
 		FindOneByQuery(ctx context.Context,rowBuilder squirrel.SelectBuilder) (*{{.upperStartCamelObject}},error)
 		FindSum(ctx context.Context,sumBuilder squirrel.SelectBuilder) (float64,error)
 		FindCount(ctx context.Context,countBuilder squirrel.SelectBuilder) (int64,error)
@@ -55,14 +55,14 @@ func New{{.upperStartCamelObject}}Model(conn sqlx.SqlConn{{if .withCache}}, c ca
 	}
 }
 
-func (m *default{{.upperStartCamelObject}}Model) DeleteSoft(ctx context.Context,session sqlx.Session,data *{{.upperStartCamelObject}}) error {
-	data.DelState = DelStateYes
-	data.DeleteTime = time.Now()
-	if err:= m.UpdateWithVersion(ctx,session, data);err!= nil{
-		return err
-	}
-	return nil
-}
+// 如有需要，请自行实现 UpdateWithVersion
+// func (m *default{{.upperStartCamelObject}}Model) DeleteSoft(ctx context.Context,session sqlx.Session,data *{{.upperStartCamelObject}}) error {
+// 	data.DelState = DelStateYes
+// 	if err:= m.UpdateWithVersion(ctx,session, data);err!= nil{
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func (m *default{{.upperStartCamelObject}}Model) FindOneByQuery(ctx context.Context,rowBuilder squirrel.SelectBuilder) (*{{.upperStartCamelObject}},error) {
 
