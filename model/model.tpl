@@ -22,12 +22,6 @@ import (
 {{end}}
 var _ {{.upperStartCamelObject}}Model = (*custom{{.upperStartCamelObject}}Model)(nil)
 
-var (
-	// DelStateNo 软删除:0-未删除
-	DelStateNo  int64 = 0 
-	// DelStateYes 软删除:0-已删除
-	DelStateYes int64 = 1 
-)
 
 type (
 	// {{.upperStartCamelObject}}Model is an interface to be customized, add more methods here,
