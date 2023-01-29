@@ -2,21 +2,22 @@ package {{.pkg}}
 {{if .withCache}}
 import (
 	"context"
-	"time"
-
-	"github.com/zeromicro/go-zero/core/stores/cache"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/Masterminds/squirrel"
+	"fmt"
 	"github.com/pkg/errors"
+
+	"github.com/Masterminds/squirrel"
+	"github.com/zeromicro/go-zero/core/stores/cache"
+	"github.com/zeromicro/go-zero/core/stores/sqlc"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 {{else}}
 import (
 	"context"
-	"time"
+	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/Masterminds/squirrel"
-	"github.com/pkg/errors"
 )
 
 {{end}}
@@ -29,17 +30,17 @@ type (
 	{{.upperStartCamelObject}}Model interface {
 		{{.lowerStartCamelObject}}Model
 		Trans(ctx context.Context,fn func(context context.Context,session sqlx.Session) error) error
-		RowBuilder() squirrel.SelectBuilder
-		CountBuilder(field string) squirrel.SelectBuilder
-		SumBuilder(field string) squirrel.SelectBuilder
 		// DeleteSoft(ctx context.Context,session sqlx.Session, data *{{.upperStartCamelObject}}) error
-		FindOneByQuery(ctx context.Context,rowBuilder squirrel.SelectBuilder) (*{{.upperStartCamelObject}},error)
+		FindOneByQuery(ctx context.Context,selectBuilder squirrel.SelectBuilder) (*{{.upperStartCamelObject}},error)
 		FindSum(ctx context.Context,sumBuilder squirrel.SelectBuilder) (float64,error)
 		FindCount(ctx context.Context,countBuilder squirrel.SelectBuilder) (int64,error)
-		FindAll(ctx context.Context,rowBuilder squirrel.SelectBuilder,orderBy string) ([]*{{.upperStartCamelObject}},error)
-		FindPageListByPage(ctx context.Context,rowBuilder squirrel.SelectBuilder,page ,pageSize int64,orderBy string) ([]*{{.upperStartCamelObject}},error)
-		FindPageListByIdDESC(ctx context.Context,rowBuilder squirrel.SelectBuilder ,preMinId ,pageSize int64) ([]*{{.upperStartCamelObject}},error)
-		FindPageListByIdASC(ctx context.Context,rowBuilder squirrel.SelectBuilder,preMaxId ,pageSize int64) ([]*{{.upperStartCamelObject}},error)
+		FindAll(ctx context.Context,selectBuilder squirrel.SelectBuilder,orderBy string) ([]*{{.upperStartCamelObject}},error)
+		FindPageListByPage(ctx context.Context,selectBuilder squirrel.SelectBuilder,page ,pageSize int64,orderBy string) ([]*{{.upperStartCamelObject}},error)
+		FindPageListByIdDESC(ctx context.Context,selectBuilder squirrel.SelectBuilder ,preMinId ,pageSize int64) ([]*{{.upperStartCamelObject}},error)
+		FindPageListByIdASC(ctx context.Context,selectBuilder squirrel.SelectBuilder,preMaxId ,pageSize int64) ([]*{{.upperStartCamelObject}},error)
+		BatchInsert(ctx context.Context, session sqlx.Session, data []map[string]interface{}) error
+		BatchUpdateByWhere(ctx context.Context, session sqlx.Session, where map[string]interface{}, SetData map[string]interface{}) error
+		BatchUpdateCase(ctx context.Context, session sqlx.Session, where map[string]interface{}, data []map[string]interface{}, fieldKey string) error
 
 }
 
@@ -55,6 +56,21 @@ func New{{.upperStartCamelObject}}Model(conn sqlx.SqlConn{{if .withCache}}, c ca
 	}
 }
 
+
+
+// Trans Trans
+func (m *default{{.upperStartCamelObject}}Model) Trans(ctx context.Context,fn func(ctx context.Context,session sqlx.Session) error) error {
+	{{if .withCache}}
+	return m.TransactCtx(ctx,func(ctx context.Context,session sqlx.Session) error {
+		return  fn(ctx,session)
+	})
+	{{else}}
+	return m.conn.TransactCtx(ctx,func(ctx context.Context,session sqlx.Session) error {
+		return  fn(ctx,session)
+	})
+	{{end}}
+}
+
 // 如有需要，请自行实现 UpdateWithVersion
 // func (m *default{{.upperStartCamelObject}}Model) DeleteSoft(ctx context.Context,session sqlx.Session,data *{{.upperStartCamelObject}}) error {
 // 	data.DelState = DelStateYes
@@ -64,9 +80,10 @@ func New{{.upperStartCamelObject}}Model(conn sqlx.SqlConn{{if .withCache}}, c ca
 // 	return nil
 // }
 
-func (m *default{{.upperStartCamelObject}}Model) FindOneByQuery(ctx context.Context,rowBuilder squirrel.SelectBuilder) (*{{.upperStartCamelObject}},error) {
+// FindOneByQuery FindOneByQuery
+func (m *default{{.upperStartCamelObject}}Model) FindOneByQuery(ctx context.Context,selectBuilder squirrel.SelectBuilder) (*{{.upperStartCamelObject}},error) {
 
-	query, values, err := rowBuilder.ToSql()
+	query, values, err := selectBuilder.ToSql()
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +95,14 @@ func (m *default{{.upperStartCamelObject}}Model) FindOneByQuery(ctx context.Cont
 	switch err {
 	case nil:
 		return &resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
 	default:
 		return nil, err
 	}
 }
 
-
+// FindSum FindSum
 func (m *default{{.upperStartCamelObject}}Model) FindSum(ctx context.Context,sumBuilder squirrel.SelectBuilder) (float64,error) {
 
 	query, values, err := sumBuilder.ToSql()
@@ -103,6 +122,7 @@ func (m *default{{.upperStartCamelObject}}Model) FindSum(ctx context.Context,sum
 	}
 }
 
+// FindCount FindCount
 func (m *default{{.upperStartCamelObject}}Model) FindCount(ctx context.Context,countBuilder squirrel.SelectBuilder) (int64,error) {
 
 	query, values, err := countBuilder.ToSql()
@@ -122,15 +142,16 @@ func (m *default{{.upperStartCamelObject}}Model) FindCount(ctx context.Context,c
 	}
 }
 
-func (m *default{{.upperStartCamelObject}}Model) FindAll(ctx context.Context,rowBuilder squirrel.SelectBuilder,orderBy string) ([]*{{.upperStartCamelObject}},error) {
+// FindAll FindAll
+func (m *default{{.upperStartCamelObject}}Model) FindAll(ctx context.Context,selectBuilder squirrel.SelectBuilder,orderBy string) ([]*{{.upperStartCamelObject}},error) {
 
 	if orderBy == ""{
-		rowBuilder = rowBuilder.OrderBy("id DESC")
+		selectBuilder = selectBuilder.OrderBy("id DESC")
 	}else{
-		rowBuilder = rowBuilder.OrderBy(orderBy)
+		selectBuilder = selectBuilder.OrderBy(orderBy)
 	}
 
-	query, values, err := rowBuilder.ToSql()
+	query, values, err := selectBuilder.ToSql()
 	if err != nil {
 		return nil, err
 	}
@@ -142,17 +163,20 @@ func (m *default{{.upperStartCamelObject}}Model) FindAll(ctx context.Context,row
 	switch err {
 	case nil:
 		return resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
 	default:
 		return nil, err
 	}
 }
 
-func (m *default{{.upperStartCamelObject}}Model) FindPageListByPage(ctx context.Context,rowBuilder squirrel.SelectBuilder,page ,pageSize int64,orderBy string) ([]*{{.upperStartCamelObject}},error) {
+// FindPageListByPage FindPageListByPage
+func (m *default{{.upperStartCamelObject}}Model) FindPageListByPage(ctx context.Context,selectBuilder squirrel.SelectBuilder,page ,pageSize int64,orderBy string) ([]*{{.upperStartCamelObject}},error) {
 
 	if orderBy == ""{
-		rowBuilder = rowBuilder.OrderBy("id DESC")
+		selectBuilder = selectBuilder.OrderBy("id DESC")
 	}else{
-		rowBuilder = rowBuilder.OrderBy(orderBy)
+		selectBuilder = selectBuilder.OrderBy(orderBy)
 	}
 
 	if page < 1{
@@ -160,7 +184,7 @@ func (m *default{{.upperStartCamelObject}}Model) FindPageListByPage(ctx context.
 	}
 	offset := (page - 1) * pageSize
 
-	query, values, err := rowBuilder.Offset(uint64(offset)).Limit(uint64(pageSize)).ToSql()
+	query, values, err := selectBuilder.Offset(uint64(offset)).Limit(uint64(pageSize)).ToSql()
 	if err != nil {
 		return nil, err
 	}
@@ -172,18 +196,21 @@ func (m *default{{.upperStartCamelObject}}Model) FindPageListByPage(ctx context.
 	switch err {
 	case nil:
 		return resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
 	default:
 		return nil, err
 	}
 }
 
-func (m *default{{.upperStartCamelObject}}Model) FindPageListByIdDESC(ctx context.Context,rowBuilder squirrel.SelectBuilder ,preMinId ,pageSize int64) ([]*{{.upperStartCamelObject}},error) {
+// FindPageListByIdDESC FindPageListByIdDESC
+func (m *default{{.upperStartCamelObject}}Model) FindPageListByIdDESC(ctx context.Context,selectBuilder squirrel.SelectBuilder ,preMinId ,pageSize int64) ([]*{{.upperStartCamelObject}},error) {
 
 	if preMinId > 0 {
-		rowBuilder = rowBuilder.Where(" id < ? " , preMinId)
+		selectBuilder = selectBuilder.Where(" id < ? " , preMinId)
 	}
 
-	query, values, err := rowBuilder.OrderBy("id DESC").Limit(uint64(pageSize)).ToSql()
+	query, values, err := selectBuilder.OrderBy("id DESC").Limit(uint64(pageSize)).ToSql()
 	if err != nil {
 		return nil, err
 	}
@@ -195,19 +222,21 @@ func (m *default{{.upperStartCamelObject}}Model) FindPageListByIdDESC(ctx contex
 	switch err {
 	case nil:
 		return resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
 	default:
 		return nil, err
 	}
 }
 
-//按照id升序分页查询数据，不支持排序
-func (m *default{{.upperStartCamelObject}}Model) FindPageListByIdASC(ctx context.Context,rowBuilder squirrel.SelectBuilder,preMaxId ,pageSize int64) ([]*{{.upperStartCamelObject}},error)  {
+// FindPageListByIdASC 按照id升序分页查询数据，不支持排序
+func (m *default{{.upperStartCamelObject}}Model) FindPageListByIdASC(ctx context.Context,selectBuilder squirrel.SelectBuilder,preMaxId ,pageSize int64) ([]*{{.upperStartCamelObject}},error)  {
 
 	if preMaxId > 0 {
-		rowBuilder = rowBuilder.Where(" id > ? " , preMaxId)
+		selectBuilder = selectBuilder.Where(" id > ? " , preMaxId)
 	}
 
-	query, values, err := rowBuilder.OrderBy("id ASC").Limit(uint64(pageSize)).ToSql()
+	query, values, err := selectBuilder.OrderBy("id ASC").Limit(uint64(pageSize)).ToSql()
 	if err != nil {
 		return nil, err
 	}
@@ -219,35 +248,116 @@ func (m *default{{.upperStartCamelObject}}Model) FindPageListByIdASC(ctx context
 	switch err {
 	case nil:
 		return resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
 	default:
 		return nil, err
 	}
 }
 
-// export logic
-func (m *default{{.upperStartCamelObject}}Model) Trans(ctx context.Context,fn func(ctx context.Context,session sqlx.Session) error) error {
-	{{if .withCache}}
-	return m.TransactCtx(ctx,func(ctx context.Context,session sqlx.Session) error {
-		return  fn(ctx,session)
+// BatchInsert 批量插入
+func (m *default{{.upperStartCamelObject}}Model) BatchInsert(ctx context.Context, session sqlx.Session, data []map[string]interface{}) error {
+
+	query, value, err := sqlBuilder.BuildInsert(m.table, data)
+	if err != nil {
+		return err
+	}
+
+	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (sql.Result, error) {
+		if session != nil {
+			return session.ExecCtx(ctx, query, value...)
+		}
+		return conn.ExecCtx(ctx, query, value...)
 	})
-	{{else}}
-	return m.conn.TransactCtx(ctx,func(ctx context.Context,session sqlx.Session) error {
-		return  fn(ctx,session)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+// BatchUpdateByWhere 批量更新
+func (m *default{{.upperStartCamelObject}}Model) BatchUpdateByWhere(ctx context.Context, session sqlx.Session, where map[string]interface{}, SetData map[string]interface{}) error {
+
+	query, value, err := squirrel.Update(m.table).SetMap(SetData).Where(where).ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (sql.Result, error) {
+		if session != nil {
+			session.ExecCtx(ctx, query, value...)
+		}
+		return conn.ExecCtx(ctx, query, value...)
 	})
-	{{end}}
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// export logic
-func (m *default{{.upperStartCamelObject}}Model) RowBuilder() squirrel.SelectBuilder {
-	return squirrel.Select({{.lowerStartCamelObject}}Rows).From(m.table)
-}
+// BatchUpdateCase 根据指定条件批量更新数据
+func (m *defaultFoodCategoryModel) BatchUpdateCase(ctx context.Context, session sqlx.Session, where map[string]interface{}, data []map[string]interface{}, fieldKey string) error {
+	if len(fieldKey) == 0 {
+		return errors.New("params error")
+	}
+	updateBuilder := squirrel.Update(m.table).Where(where)
+	whenMap := map[string][]map[interface{}]interface{}{}
 
-// export logic
-func (m *default{{.upperStartCamelObject}}Model) CountBuilder(field string) squirrel.SelectBuilder {
-	return squirrel.Select("COUNT("+field+")").From(m.table)
-}
+	for _, datum := range data {
+		fieldKeyValue, ok := datum[fieldKey]
+		if !ok {
+			return errors.New("params error")
+		}
+		switch fieldKeyValue.(type) {
+		case string, squirrel.Sqlizer:
+		default:
+			fieldKeyValue = fmt.Sprintf("%v", fieldKeyValue)
+		}
 
-// export logic
-func (m *default{{.upperStartCamelObject}}Model) SumBuilder(field string) squirrel.SelectBuilder {
-	return squirrel.Select("IFNULL(SUM("+field+"),0)").From(m.table)
+		for column, columnValue := range datum {
+			if column == fieldKey {
+				continue
+			}
+
+			if _, ok = whenMap[column]; !ok {
+				whenMap[column] = []map[interface{}]interface{}{}
+			}
+			switch columnValue.(type) {
+			case squirrel.Sqlizer:
+			default:
+				columnValue = fmt.Sprintf("'%v'", columnValue)
+			}
+			whenMap[column] = append(whenMap[column], map[interface{}]interface{}{fieldKeyValue: columnValue})
+		}
+	}
+
+	for column, whenList := range whenMap {
+		caseBuilder := squirrel.Case(fieldKey)
+		for _, when := range whenList {
+			for fieldKeyValue, columnValue := range when {
+				caseBuilder = caseBuilder.When(fieldKeyValue, columnValue)
+			}
+		}
+
+		updateBuilder = updateBuilder.Set(column, caseBuilder)
+	}
+
+	query, values, err := updateBuilder.ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (sql.Result, error) {
+		if session != nil {
+			return session.ExecCtx(ctx, query, values...)
+		}
+		return conn.ExecCtx(ctx, query, values...)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
