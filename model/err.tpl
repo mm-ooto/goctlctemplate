@@ -12,12 +12,12 @@ var ErrAffectedRowsIsZero = errors.New("the number of affected rows is 0")
 
 // SelectBuilder 构建SQL SELECT语句。
 // 注意：如果columns不为空并且接收参数的字段个数大于columns就会报错，解决办法是自定义用于接收的参数（不要使用生成的model）
-func SelectBuilder(table string, columns ...[]string) squirrel.SelectBuilder {
+func SelectBuilder(table,rows string, columns ...[]string) squirrel.SelectBuilder {
 	var sb squirrel.SelectBuilder
 	if len(columns) > 0 {
 		sb = squirrel.Select(columns[0]...).From(table)
 	} else {
-		sb = squirrel.Select(foodCategoryRows).From(table)
+		sb = squirrel.Select(rows).From(table)
 	}
 	return sb
 }
