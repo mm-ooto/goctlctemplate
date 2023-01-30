@@ -300,7 +300,7 @@ func (m *default{{.upperStartCamelObject}}Model) BatchUpdateByWhere(ctx context.
 }
 
 // BatchUpdateCase 根据指定条件批量更新数据
-func (m *defaultFoodCategoryModel) BatchUpdateCase(ctx context.Context, session sqlx.Session, where map[string]interface{}, data []map[string]interface{}, fieldKey string) error {
+func (m *default{{.upperStartCamelObject}}Model) BatchUpdateCase(ctx context.Context, session sqlx.Session, where map[string]interface{}, data []map[string]interface{}, fieldKey string) error {
 	if len(fieldKey) == 0 {
 		return errors.New("params error")
 	}
